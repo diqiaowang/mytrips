@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MyTrips — Vibey Earth Map</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__overlay"></div>
+      <div class="hero__content">
+        <p class="eyebrow">Travel journal prototype</p>
+        <h1>Build your vibey Earth map of memories</h1>
+        <p>
+          Pin places, upload your favorite photos, and keep little stories for every city,
+          beach, mountain, or random alley that became part of your journey.
+        </p>
+        <button id="focus-form" class="button">Add a memory</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel panel--map" aria-label="Map and travel pins">
+        <div class="panel__header">
+          <h2>Earth map</h2>
+          <p>Click any glowing pin to open the memory card.</p>
+        </div>
+        <div id="map" class="map" role="img" aria-label="Stylized map with memory markers"></div>
+      </section>
+
+      <section class="panel panel--form">
+        <div class="panel__header">
+          <h2>Add new memory</h2>
+          <p>Your entries are saved in local storage on this device.</p>
+        </div>
+        <form id="memory-form" class="memory-form">
+          <label>
+            Place
+            <input name="place" type="text" placeholder="e.g. Kyoto, Japan" required />
+          </label>
+          <label>
+            Date
+            <input name="date" type="date" required />
+          </label>
+          <label>
+            Latitude
+            <input name="lat" type="number" step="0.01" min="-90" max="90" placeholder="35.67" required />
+          </label>
+          <label>
+            Longitude
+            <input name="lng" type="number" step="0.01" min="-180" max="180" placeholder="139.65" required />
+          </label>
+          <label>
+            Photo URL
+            <input name="photo" type="url" placeholder="https://..." required />
+          </label>
+          <label>
+            Vibe note
+            <textarea name="note" rows="4" placeholder="Night lanterns, ramen steam, tiny rain." required></textarea>
+          </label>
+          <button class="button" type="submit">Save memory</button>
+        </form>
+      </section>
+
+      <section class="panel panel--list" aria-live="polite">
+        <div class="panel__header">
+          <h2>Your travel timeline</h2>
+          <p>Newest memories appear first.</p>
+        </div>
+        <div id="memory-list" class="memory-list"></div>
+      </section>
+    </main>
+
+    <template id="memory-card-template">
+      <article class="memory-card">
+        <img class="memory-card__image" alt="Travel memory photo" loading="lazy" />
+        <div class="memory-card__content">
+          <h3 class="memory-card__place"></h3>
+          <p class="memory-card__date"></p>
+          <p class="memory-card__note"></p>
+        </div>
+      </article>
+    </template>
+
+    <dialog id="memory-dialog" class="memory-dialog">
+      <button class="memory-dialog__close" id="close-dialog" aria-label="Close">×</button>
+      <img id="dialog-image" alt="Selected memory" />
+      <h3 id="dialog-place"></h3>
+      <p id="dialog-date"></p>
+      <p id="dialog-note"></p>
+    </dialog>
+
+    <script src="script.js"></script>
+  </body>
+</html>
