@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MyTrips — Earth Diary</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="paper"></div>
+
+    <header class="hero">
+      <p class="eyebrow">MyTrips · Photo diary</p>
+      <h1>A quiet atlas of places you felt alive.</h1>
+      <p class="hero__subtitle">
+        Save each memory as a photo, a note, and a pin on your explorer map.
+      </p>
+      <button id="focus-form" class="button">Add memory</button>
+    </header>
+
+    <main class="layout">
+      <section class="panel panel--map" aria-label="Travel map">
+        <div class="panel__header">
+          <h2>Explorer map</h2>
+          <p>Tap a pin to open the full memory.</p>
+        </div>
+        <div id="map" class="map" role="img" aria-label="World map with travel pins"></div>
+      </section>
+
+      <section class="panel panel--form">
+        <div class="panel__header">
+          <h2>Add memory</h2>
+          <p class="helper">Everything stays in your browser (localStorage).</p>
+        </div>
+
+        <form id="memory-form" class="memory-form" novalidate>
+          <label for="place">Place</label>
+          <input id="place" name="place" type="text" autocomplete="off" placeholder="Type a city, region, or spot" required />
+          <div id="suggestion-state" class="input-helper"></div>
+          <ul id="suggestions" class="suggestions" hidden></ul>
+
+          <label for="date">Date</label>
+          <input id="date" name="date" type="date" required />
+
+          <button class="link-button" type="button" id="toggle-advanced" aria-expanded="false">
+            Advanced coordinates
+          </button>
+
+          <div id="advanced-fields" class="advanced-fields" hidden>
+            <label for="lat">Latitude</label>
+            <input id="lat" name="lat" type="number" step="0.0001" min="-90" max="90" placeholder="35.6762" required />
+
+            <label for="lng">Longitude</label>
+            <input id="lng" name="lng" type="number" step="0.0001" min="-180" max="180" placeholder="139.6503" required />
+          </div>
+
+          <label for="photo">Photo URL</label>
+          <input id="photo" name="photo" type="url" placeholder="https://..." required />
+
+          <label for="note">Vibe note</label>
+          <textarea id="note" name="note" rows="4" placeholder="Sea air, camera roll full, little cafe jazz." required></textarea>
+
+          <p id="form-error" class="form-error" aria-live="polite"></p>
+          <button class="button" type="submit">Save memory</button>
+        </form>
+      </section>
+
+      <section class="panel panel--timeline" aria-live="polite">
+        <div class="panel__header">
+          <h2>Memories</h2>
+          <p>Photo-first timeline of your travel diary.</p>
+        </div>
+        <div id="memory-list" class="memory-list"></div>
+      </section>
+    </main>
+
+    <template id="memory-card-template">
+      <article class="memory-card">
+        <img class="memory-card__image" alt="Travel memory photo" loading="lazy" />
+        <div class="memory-card__content">
+          <p class="memory-card__meta"></p>
+          <p class="memory-card__note"></p>
+        </div>
+      </article>
+    </template>
+
+    <dialog id="memory-dialog" class="memory-dialog">
+      <button class="memory-dialog__close" id="close-dialog" aria-label="Close">×</button>
+      <img id="dialog-image" alt="Selected memory" />
+      <h3 id="dialog-place"></h3>
+      <p id="dialog-date"></p>
+      <p id="dialog-note"></p>
+    </dialog>
+
+    <script src="script.js"></script>
+  </body>
+</html>
