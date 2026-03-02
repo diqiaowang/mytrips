@@ -1,4 +1,6 @@
 const STORAGE_KEY = "mytrips.memories.v1";
+const GEOCODE_CACHE_KEY = "mytrips.geocode-cache.v1";
+const GEOCODE_URL = "https://nominatim.openstreetmap.org/search?format=json&q=";
 
 const defaultMemories = [
   {
@@ -31,6 +33,18 @@ const memoryDialog = document.getElementById("memory-dialog");
 const focusFormButton = document.getElementById("focus-form");
 const closeDialogButton = document.getElementById("close-dialog");
 
+const placeInput = document.getElementById("place");
+const dateInput = document.getElementById("date");
+const latInput = document.getElementById("lat");
+const lngInput = document.getElementById("lng");
+const photoInput = document.getElementById("photo");
+const noteInput = document.getElementById("note");
+const formError = document.getElementById("form-error");
+const suggestionsList = document.getElementById("suggestions");
+const suggestionState = document.getElementById("suggestion-state");
+const toggleAdvancedButton = document.getElementById("toggle-advanced");
+const advancedFields = document.getElementById("advanced-fields");
+
 const dialogImage = document.getElementById("dialog-image");
 const dialogPlace = document.getElementById("dialog-place");
 const dialogDate = document.getElementById("dialog-date");
@@ -39,102 +53,240 @@ const dialogNote = document.getElementById("dialog-note");
 const normalizeLongitude = (longitude) => ((longitude + 180) / 360) * 100;
 const normalizeLatitude = (latitude) => ((90 - latitude) / 180) * 100;
 
-const readMemories = () => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultMemories));
-    return [...defaultMemories];
-  }
-
+const safeParse = (value, fallback) => {
   try {
-    return JSON.parse(stored);
+    return JSON.parse(value);
   } catch {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultMemories));
-    return [...defaultMemories];
+    return fallback;
   }
 };
 
-let memories = readMemories();
+const loadState = () => {
+  const storedMemories = safeParse(localStorage.getItem(STORAGE_KEY), null);
+  const memories = Array.isArray(storedMemories) ? storedMemories : defaultMemories;
+  if (!storedMemories) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(memories));
+  }
 
-const saveMemories = () => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(memories));
+  const cache = safeParse(localStorage.getItem(GEOCODE_CACHE_KEY), {});
+  return {
+    memories,
+    geocodeCache: typeof cache === "object" && cache ? cache : {},
+  };
 };
 
-const renderMemoryCards = () => {
+let state = loadState();
+let geocodeDebounceId;
+let previewPin;
+
+const saveState = () => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.memories));
+  localStorage.setItem(GEOCODE_CACHE_KEY, JSON.stringify(state.geocodeCache));
+};
+
+const sortByNewest = (items) => items.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+
+const setLatLng = (lat, lng) => {
+  latInput.value = Number(lat).toFixed(4);
+  lngInput.value = Number(lng).toFixed(4);
+};
+
+const clearSuggestions = () => {
+  suggestionsList.innerHTML = "";
+  suggestionsList.hidden = true;
+};
+
+const setSuggestionState = (message = "") => {
+  suggestionState.textContent = message;
+};
+
+const showPreviewPin = (lat, lng) => {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return;
+  }
+
+  if (!previewPin) {
+    previewPin = document.createElement("span");
+    previewPin.className = "pin pin--preview";
+    mapElement.append(previewPin);
+  }
+
+  previewPin.style.left = `${normalizeLongitude(lng)}%`;
+  previewPin.style.top = `${normalizeLatitude(lat)}%`;
+};
+
+const formatDate = (dateValue) => new Date(dateValue).toLocaleDateString(undefined, { dateStyle: "medium" });
+
+const renderTimeline = () => {
   memoryListElement.innerHTML = "";
 
-  memories
-    .slice()
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .forEach((memory) => {
-      const fragment = memoryCardTemplate.content.cloneNode(true);
-      const image = fragment.querySelector(".memory-card__image");
-      image.src = memory.photo;
-      image.alt = `Photo from ${memory.place}`;
-      fragment.querySelector(".memory-card__place").textContent = memory.place;
-      fragment.querySelector(".memory-card__date").textContent = new Date(memory.date).toDateString();
-      fragment.querySelector(".memory-card__note").textContent = memory.note;
-      memoryListElement.append(fragment);
-    });
+  sortByNewest(state.memories).forEach((memory) => {
+    const fragment = memoryCardTemplate.content.cloneNode(true);
+    const image = fragment.querySelector(".memory-card__image");
+    image.src = memory.photo;
+    image.alt = `Photo from ${memory.place}`;
+    fragment.querySelector(".memory-card__meta").textContent = `${formatDate(memory.date)} · ${memory.place}`;
+    fragment.querySelector(".memory-card__note").textContent = memory.note;
+    memoryListElement.append(fragment);
+  });
 };
 
 const openMemoryDialog = (memory) => {
   dialogImage.src = memory.photo;
   dialogPlace.textContent = memory.place;
-  dialogDate.textContent = new Date(memory.date).toDateString();
+  dialogDate.textContent = formatDate(memory.date);
   dialogNote.textContent = memory.note;
   memoryDialog.showModal();
 };
 
-const renderPins = () => {
-  mapElement.innerHTML = "";
+const renderMap = () => {
+  mapElement.querySelectorAll(".pin:not(.pin--preview)").forEach((pin) => pin.remove());
 
-  memories.forEach((memory) => {
+  state.memories.forEach((memory) => {
     const pin = document.createElement("button");
     pin.className = "pin";
     pin.style.left = `${normalizeLongitude(memory.lng)}%`;
     pin.style.top = `${normalizeLatitude(memory.lat)}%`;
     pin.title = memory.place;
+    pin.type = "button";
     pin.addEventListener("click", () => openMemoryDialog(memory));
     mapElement.append(pin);
   });
 };
 
-const renderAll = () => {
-  renderPins();
-  renderMemoryCards();
+const renderSuggestions = (results) => {
+  suggestionsList.innerHTML = "";
+
+  if (!results.length) {
+    clearSuggestions();
+    setSuggestionState("No results found.");
+    return;
+  }
+
+  setSuggestionState("Select a place to fill coordinates.");
+  results.slice(0, 5).forEach((result) => {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = result.display_name;
+    button.addEventListener("click", () => {
+      placeInput.value = result.display_name;
+      setLatLng(Number(result.lat), Number(result.lon));
+      showPreviewPin(Number(result.lat), Number(result.lon));
+      clearSuggestions();
+      setSuggestionState("Coordinates auto-filled from selected place.");
+    });
+    item.append(button);
+    suggestionsList.append(item);
+  });
+  suggestionsList.hidden = false;
+};
+
+const geocodePlace = async (query) => {
+  const key = query.toLowerCase();
+  if (state.geocodeCache[key]) {
+    return state.geocodeCache[key];
+  }
+
+  const response = await fetch(`${GEOCODE_URL}${encodeURIComponent(query)}`, {
+    headers: { Accept: "application/json" },
+  });
+
+  if (!response.ok) {
+    throw new Error("Network error");
+  }
+
+  const data = await response.json();
+  state.geocodeCache[key] = Array.isArray(data) ? data : [];
+  saveState();
+  return state.geocodeCache[key];
+};
+
+const handlePlaceInput = () => {
+  const query = placeInput.value.trim();
+  clearTimeout(geocodeDebounceId);
+
+  if (query.length < 2) {
+    clearSuggestions();
+    setSuggestionState("");
+    return;
+  }
+
+  setSuggestionState("Searching places…");
+
+  geocodeDebounceId = setTimeout(async () => {
+    try {
+      const results = await geocodePlace(query);
+      renderSuggestions(results);
+    } catch {
+      clearSuggestions();
+      setSuggestionState("Network error. Try again.");
+    }
+  }, 400);
+};
+
+const toggleAdvanced = () => {
+  const isHidden = advancedFields.hidden;
+  advancedFields.hidden = !isHidden;
+  toggleAdvancedButton.setAttribute("aria-expanded", String(isHidden));
+};
+
+const isValidCoordinate = (lat, lng) =>
+  Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+
+const addMemory = (memory) => {
+  state.memories.push(memory);
+  saveState();
+  renderMap();
+  renderTimeline();
 };
 
 memoryForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  formError.textContent = "";
 
-  const formData = new FormData(memoryForm);
-  const place = String(formData.get("place") || "").trim();
-  const note = String(formData.get("note") || "").trim();
-  const photo = String(formData.get("photo") || "").trim();
-  const date = String(formData.get("date") || "").trim();
-  const lat = Number(formData.get("lat"));
-  const lng = Number(formData.get("lng"));
+  const place = placeInput.value.trim();
+  const date = dateInput.value.trim();
+  const photo = photoInput.value.trim();
+  const note = noteInput.value.trim();
+  const lat = Number(latInput.value);
+  const lng = Number(lngInput.value);
 
-  const newMemory = {
+  if (!place || !date || !photo || !note) {
+    formError.textContent = "Please fill out all required fields.";
+    return;
+  }
+
+  if (!isValidCoordinate(lat, lng)) {
+    formError.textContent = "Please choose a place suggestion or enter valid coordinates.";
+    return;
+  }
+
+  addMemory({
     id: crypto.randomUUID(),
     place,
-    note,
-    photo,
     date,
+    photo,
+    note,
     lat,
     lng,
-  };
+  });
 
-  memories.push(newMemory);
-  saveMemories();
-  renderAll();
   memoryForm.reset();
+  clearSuggestions();
+  setSuggestionState("");
+  if (previewPin) {
+    previewPin.remove();
+    previewPin = null;
+  }
 });
 
 focusFormButton.addEventListener("click", () => {
-  memoryForm.querySelector("input[name='place']").focus();
+  placeInput.focus();
 });
+
+placeInput.addEventListener("input", handlePlaceInput);
+toggleAdvancedButton.addEventListener("click", toggleAdvanced);
 
 closeDialogButton.addEventListener("click", () => {
   memoryDialog.close();
@@ -153,4 +305,5 @@ memoryDialog.addEventListener("click", (event) => {
   }
 });
 
-renderAll();
+renderMap();
+renderTimeline();
