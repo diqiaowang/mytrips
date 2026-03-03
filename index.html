@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MyTrips — Earth Diary</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="paper" aria-hidden="true"></div>
+
+    <header class="hero">
+      <p class="eyebrow">MyTrips · Editorial archive</p>
+      <h1>Map your journeys like a curated photo diary.</h1>
+      <p class="hero__subtitle">
+        Keep each place as a pin, a photo, and a small memory note — all client-side in your browser.
+      </p>
+      <button id="focus-form" class="button button--ghost" type="button">Add new memory</button>
+    </header>
+
+    <main class="layout">
+      <section class="panel panel--map" aria-label="Explorer map with memory pins">
+        <div class="panel__header">
+          <h2>Explorer map</h2>
+          <p>Tap a pin to view, edit, or delete a memory.</p>
+        </div>
+        <div id="map" class="map" role="img" aria-label="World map with memory markers"></div>
+      </section>
+
+      <section class="panel panel--form" id="form-panel">
+        <div class="panel__header panel__header--form">
+          <h2 id="form-title">Add new memory</h2>
+          <p class="helper">Stored locally with localStorage · no backend.</p>
+          <button id="collapse-form" class="link-button collapse-button" type="button" aria-expanded="true">
+            Collapse form
+          </button>
+        </div>
+
+        <div id="form-content">
+          <form id="memory-form" class="memory-form" novalidate>
+            <label for="place">Place</label>
+            <input id="place" name="place" type="text" autocomplete="off" placeholder="City, country, landmark" required />
+            <div id="suggestion-state" class="input-helper" aria-live="polite"></div>
+            <ul id="suggestions" class="suggestions" hidden></ul>
+
+            <label for="date">Date</label>
+            <input id="date" name="date" type="date" required />
+
+            <button class="link-button" type="button" id="toggle-advanced" aria-expanded="false">Advanced coordinates</button>
+            <div id="advanced-fields" class="advanced-fields" hidden>
+              <label for="lat">Latitude</label>
+              <input id="lat" name="lat" type="number" step="0.0001" min="-90" max="90" placeholder="48.8566" required />
+
+              <label for="lng">Longitude</label>
+              <input id="lng" name="lng" type="number" step="0.0001" min="-180" max="180" placeholder="2.3522" required />
+            </div>
+
+            <label for="photo">Photo URL</label>
+            <input id="photo" name="photo" type="url" placeholder="https://..." required />
+
+            <label for="tags">Tags</label>
+            <input id="tags" name="tags" type="text" placeholder="food, sunrise, museum" />
+            <p class="input-helper">Comma-separated tags for filtering.</p>
+
+            <label for="note">Vibe note</label>
+            <textarea id="note" name="note" rows="4" placeholder="Rain on old stone streets, espresso at dusk." required></textarea>
+
+            <p id="form-error" class="form-error" aria-live="polite"></p>
+            <div class="form-actions">
+              <button id="submit-memory" class="button" type="submit">Save memory</button>
+              <button id="cancel-edit" class="button button--secondary" type="button" hidden>Cancel edit</button>
+            </div>
+          </form>
+
+          <section class="panel panel--backup" aria-label="Backup tools">
+            <div class="panel__header">
+              <h3>Backup</h3>
+              <p>Export or import your memories as JSON.</p>
+            </div>
+            <div class="backup-actions">
+              <button id="export-memories" class="button button--small" type="button">Export JSON</button>
+              <button id="import-merge" class="button button--small button--secondary" type="button">Import (merge)</button>
+              <button id="import-replace" class="button button--small button--secondary" type="button">Import (replace)</button>
+              <input id="import-file" type="file" accept="application/json" hidden />
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="panel panel--timeline" aria-live="polite">
+        <div class="panel__header panel__header--filters">
+          <div>
+            <h2>Memories</h2>
+            <p>Photo-first archive cards, filtered in real-time.</p>
+          </div>
+          <div class="filters">
+            <input id="search-input" type="search" placeholder="Search place, note, tag" aria-label="Search memories" />
+            <select id="tag-filter" aria-label="Filter by tag">
+              <option value="">All tags</option>
+            </select>
+          </div>
+        </div>
+        <div id="memory-list" class="memory-list"></div>
+      </section>
+    </main>
+
+    <template id="memory-card-template">
+      <article class="memory-card" tabindex="0">
+        <img class="memory-card__image" alt="Travel memory photo" loading="lazy" />
+        <div class="memory-card__content">
+          <p class="memory-card__meta"></p>
+          <p class="memory-card__note"></p>
+          <p class="memory-card__tags"></p>
+        </div>
+      </article>
+    </template>
+
+    <dialog id="memory-dialog" class="memory-dialog">
+      <button class="memory-dialog__close" id="close-dialog" aria-label="Close">×</button>
+      <img id="dialog-image" alt="Selected memory" />
+      <h3 id="dialog-place"></h3>
+      <p id="dialog-meta"></p>
+      <p id="dialog-note"></p>
+      <p id="dialog-tags"></p>
+      <div class="dialog-actions">
+        <button id="edit-memory" class="button button--small" type="button">Edit</button>
+        <button id="delete-memory" class="button button--small button--danger" type="button">Delete</button>
+      </div>
+    </dialog>
+
+    <script src="script.js"></script>
+  </body>
+</html>
