@@ -234,7 +234,6 @@ select:focus {
 }
 
 .form-actions,
-.backup-actions,
 .dialog-actions {
   display: flex;
   flex-wrap: wrap;
@@ -273,15 +272,6 @@ select:focus {
 .button--small {
   padding: 0.5rem 0.85rem;
   font-size: 0.86rem;
-}
-
-.panel--backup {
-  margin-top: 0.95rem;
-  border-radius: var(--radius);
-}
-
-.backup-actions {
-  padding: 0.9rem 1rem 1rem;
 }
 
 .panel--timeline {

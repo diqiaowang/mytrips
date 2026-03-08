@@ -2,13 +2,12 @@ const STORAGE_KEY = "mytrips.memories.v1";
 const GEOCODE_CACHE_KEY = "mytrips.geocode-cache.v1";
 const GEOCODE_URL = "https://nominatim.openstreetmap.org/search?format=json&limit=5&q=";
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=900&q=80";
-const GEOCODE_URL = "https://nominatim.openstreetmap.org/search?format=json&q=";
 
 const defaultMemories = [
   {
     id: crypto.randomUUID(),
     place: "Lisbon, Portugal",
-    date: "2024-05-18",
+    date: "2024-05-18T18:00",
     lat: 38.72,
     lng: -9.14,
     photo:
@@ -19,7 +18,7 @@ const defaultMemories = [
   {
     id: crypto.randomUUID(),
     place: "Ubud, Bali",
-    date: "2023-09-06",
+    date: "2023-09-06T09:30",
     lat: -8.5,
     lng: 115.26,
     photo:
@@ -44,6 +43,8 @@ const dateInput = document.getElementById("date");
 const latInput = document.getElementById("lat");
 const lngInput = document.getElementById("lng");
 const photoInput = document.getElementById("photo");
+const photoFileInput = document.getElementById("photo-file");
+const photoFileState = document.getElementById("photo-file-state");
 const tagsInput = document.getElementById("tags");
 const noteInput = document.getElementById("note");
 const formError = document.getElementById("form-error");
@@ -59,11 +60,6 @@ const advancedFields = document.getElementById("advanced-fields");
 const searchInput = document.getElementById("search-input");
 const tagFilter = document.getElementById("tag-filter");
 
-const exportMemoriesButton = document.getElementById("export-memories");
-const importMergeButton = document.getElementById("import-merge");
-const importReplaceButton = document.getElementById("import-replace");
-const importFileInput = document.getElementById("import-file");
-
 const dialogImage = document.getElementById("dialog-image");
 const dialogPlace = document.getElementById("dialog-place");
 const dialogMeta = document.getElementById("dialog-meta");
@@ -74,7 +70,6 @@ const deleteMemoryButton = document.getElementById("delete-memory");
 
 const normalizeLongitude = (longitude) => ((longitude + 180) / 360) * 100;
 const normalizeLatitude = (latitude) => ((90 - latitude) / 180) * 100;
-const formatDate = (dateValue) => new Date(dateValue).toLocaleDateString(undefined, { dateStyle: "medium" });
 const sortByNewest = (items) => items.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
 
 const safeParse = (value, fallback) => {
@@ -83,6 +78,24 @@ const safeParse = (value, fallback) => {
   } catch {
     return fallback;
   }
+};
+
+const normalizeDateValue = (value) => {
+  if (!value) {
+    return "";
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return `${value}T12:00`;
+  }
+  return value;
+};
+
+const formatDate = (dateValue) => {
+  const parsed = new Date(normalizeDateValue(dateValue));
+  if (Number.isNaN(parsed.getTime())) {
+    return "Unknown date";
+  }
+  return parsed.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 };
 
 const parseTags = (value) =>
@@ -95,7 +108,7 @@ const parseTags = (value) =>
 const normalizeMemory = (memory) => ({
   id: memory.id || crypto.randomUUID(),
   place: String(memory.place || "").trim(),
-  date: String(memory.date || ""),
+  date: normalizeDateValue(String(memory.date || "")),
   lat: Number(memory.lat),
   lng: Number(memory.lng),
   photo: String(memory.photo || FALLBACK_IMAGE).trim(),
@@ -106,13 +119,14 @@ const normalizeMemory = (memory) => ({
 const loadState = () => {
   const storedMemories = safeParse(localStorage.getItem(STORAGE_KEY), null);
   const memoriesRaw = Array.isArray(storedMemories) ? storedMemories : defaultMemories;
-  const memories = memoriesRaw.map(normalizeMemory).filter((memory) => memory.place && memory.date);
+  const memories = memoriesRaw.map(normalizeMemory).filter((memory) => memory.place);
 
   if (!storedMemories) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(memories));
   }
 
   const cache = safeParse(localStorage.getItem(GEOCODE_CACHE_KEY), {});
+
   return {
     memories,
     geocodeCache: typeof cache === "object" && cache ? cache : {},
@@ -122,7 +136,7 @@ const loadState = () => {
     },
     editingId: null,
     selectedMemoryId: null,
-    importMode: "merge",
+    pendingUploadedPhoto: "",
   };
 };
 
@@ -142,6 +156,10 @@ const setSuggestionState = (message = "") => {
 const clearSuggestions = () => {
   suggestionsList.innerHTML = "";
   suggestionsList.hidden = true;
+};
+
+const setPhotoFileState = (message = "JPEG/PNG/WebP. Uploaded images are compressed before save.") => {
+  photoFileState.textContent = message;
 };
 
 const setLatLng = (lat, lng) => {
@@ -203,7 +221,7 @@ const openModal = (memory) => {
   state.selectedMemoryId = memory.id;
   dialogImage.src = memory.photo || FALLBACK_IMAGE;
   dialogPlace.textContent = memory.place;
-  dialogMeta.textContent = `${formatDate(memory.date)} · ${memory.place}`;
+  dialogMeta.textContent = `${formatDate(memory.date)} • ${memory.place}`;
   dialogNote.textContent = memory.note;
   dialogTags.textContent = memory.tags.length ? `#${memory.tags.join(" #")}` : "No tags";
   memoryDialog.showModal();
@@ -267,9 +285,6 @@ const renderAll = () => {
   renderList();
 };
 
-const isValidCoordinate = (lat, lng) =>
-  Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
-
 const resetFormMode = () => {
   state.editingId = null;
   formTitle.textContent = "Add new memory";
@@ -279,10 +294,12 @@ const resetFormMode = () => {
 
 const fillForm = (memory) => {
   placeInput.value = memory.place;
-  dateInput.value = memory.date;
+  dateInput.value = normalizeDateValue(memory.date);
   latInput.value = String(memory.lat);
   lngInput.value = String(memory.lng);
-  photoInput.value = memory.photo;
+  photoInput.value = memory.photo.startsWith("data:") ? "" : memory.photo;
+  state.pendingUploadedPhoto = memory.photo.startsWith("data:") ? memory.photo : "";
+  setPhotoFileState(state.pendingUploadedPhoto ? "Using existing uploaded image. Choose a new file to replace." : undefined);
   noteInput.value = memory.note;
   tagsInput.value = memory.tags.join(", ");
   showPreviewPin(memory.lat, memory.lng);
@@ -380,37 +397,175 @@ const handlePlaceInput = () => {
   }, 400);
 };
 
-const exportJSON = () => {
-  const blob = new Blob([JSON.stringify(state.memories, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `mytrips-memories-${new Date().toISOString().slice(0, 10)}.json`;
-  anchor.click();
-  URL.revokeObjectURL(url);
+const isValidCoordinate = (lat, lng) =>
+  Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+
+const readExifDateTime = (arrayBuffer) => {
+  const view = new DataView(arrayBuffer);
+  if (view.byteLength < 4 || view.getUint16(0) !== 0xffd8) {
+    return null;
+  }
+
+  let offset = 2;
+  while (offset + 4 < view.byteLength) {
+    const marker = view.getUint16(offset);
+    offset += 2;
+
+    if (marker === 0xffda || marker === 0xffd9) {
+      break;
+    }
+
+    const segmentLength = view.getUint16(offset);
+    if (segmentLength < 2 || offset + segmentLength > view.byteLength) {
+      break;
+    }
+
+    if (marker === 0xffe1) {
+      const start = offset + 2;
+      if (start + 6 > view.byteLength) {
+        break;
+      }
+
+      const exifHeader = String.fromCharCode(
+        view.getUint8(start),
+        view.getUint8(start + 1),
+        view.getUint8(start + 2),
+        view.getUint8(start + 3),
+      );
+
+      if (exifHeader !== "Exif") {
+        offset += segmentLength;
+        continue;
+      }
+
+      const tiffStart = start + 6;
+      const littleEndian = view.getUint16(tiffStart) === 0x4949;
+      const getUint16 = (pos) => view.getUint16(pos, littleEndian);
+      const getUint32 = (pos) => view.getUint32(pos, littleEndian);
+
+      const ifd0Offset = getUint32(tiffStart + 4);
+      const ifd0Start = tiffStart + ifd0Offset;
+      const ifd0Entries = getUint16(ifd0Start);
+
+      let exifIfdOffset = null;
+      for (let i = 0; i < ifd0Entries; i += 1) {
+        const entry = ifd0Start + 2 + i * 12;
+        if (getUint16(entry) === 0x8769) {
+          exifIfdOffset = getUint32(entry + 8);
+          break;
+        }
+      }
+
+      if (!exifIfdOffset) {
+        return null;
+      }
+
+      const exifIfdStart = tiffStart + exifIfdOffset;
+      const exifEntries = getUint16(exifIfdStart);
+
+      for (let i = 0; i < exifEntries; i += 1) {
+        const entry = exifIfdStart + 2 + i * 12;
+        const tag = getUint16(entry);
+        if (tag !== 0x9003 && tag !== 0x0132) {
+          continue;
+        }
+
+        const count = getUint32(entry + 4);
+        const valueOffset = getUint32(entry + 8);
+        const stringStart = tiffStart + valueOffset;
+        const end = Math.min(stringStart + count, view.byteLength);
+        let result = "";
+        for (let p = stringStart; p < end; p += 1) {
+          const byte = view.getUint8(p);
+          if (byte === 0) {
+            break;
+          }
+          result += String.fromCharCode(byte);
+        }
+        return result || null;
+      }
+    }
+
+    offset += segmentLength;
+  }
+
+  return null;
 };
 
-const importJSON = (text, mode) => {
-  const parsed = safeParse(text, null);
-  if (!Array.isArray(parsed)) {
-    throw new Error("Invalid JSON file");
+const exifToDatetimeLocal = (exifValue) => {
+  if (!exifValue) {
+    return null;
   }
 
-  const imported = parsed.map(normalizeMemory).filter((memory) => memory.place && memory.date);
-
-  if (mode === "replace") {
-    state.memories = imported;
-  } else {
-    const byId = new Map(state.memories.map((memory) => [memory.id, memory]));
-    imported.forEach((memory) => {
-      const id = memory.id || crypto.randomUUID();
-      byId.set(id, { ...memory, id });
-    });
-    state.memories = [...byId.values()];
+  const match = exifValue.match(/^(\d{4}):(\d{2}):(\d{2})\s(\d{2}):(\d{2})(?::\d{2})?/);
+  if (!match) {
+    return null;
   }
 
-  saveState();
-  renderAll();
+  const [, year, month, day, hour, minute] = match;
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+};
+
+const compressImageFile = (file, maxDimension = 1800, quality = 0.82) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onerror = () => reject(new Error("Could not read image file"));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error("Could not load image"));
+      image.onload = () => {
+        const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+        const targetWidth = Math.max(1, Math.round(image.width * scale));
+        const targetHeight = Math.max(1, Math.round(image.height * scale));
+
+        const canvas = document.createElement("canvas");
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+
+        const context = canvas.getContext("2d");
+        if (!context) {
+          reject(new Error("Could not create image context"));
+          return;
+        }
+
+        context.drawImage(image, 0, 0, targetWidth, targetHeight);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      image.src = reader.result;
+    };
+
+    reader.readAsDataURL(file);
+  });
+
+const handleLocalPhoto = async () => {
+  const file = photoFileInput.files?.[0];
+  if (!file) {
+    state.pendingUploadedPhoto = "";
+    setPhotoFileState();
+    return;
+  }
+
+  try {
+    setPhotoFileState("Compressing image and reading EXIF…");
+
+    const [compressedDataUrl, exifBuffer] = await Promise.all([
+      compressImageFile(file),
+      file.arrayBuffer(),
+    ]);
+
+    state.pendingUploadedPhoto = compressedDataUrl;
+    setPhotoFileState(`Using uploaded photo: ${file.name}`);
+
+    const exifDateValue = exifToDatetimeLocal(readExifDateTime(exifBuffer));
+    if (exifDateValue && !dateInput.value) {
+      dateInput.value = exifDateValue;
+      setPhotoFileState(`Using uploaded photo: ${file.name} · capture time detected`);
+    }
+  } catch {
+    state.pendingUploadedPhoto = "";
+    setPhotoFileState("Could not process image. Please try another file.");
+  }
 };
 
 memoryForm.addEventListener("submit", (event) => {
@@ -418,15 +573,22 @@ memoryForm.addEventListener("submit", (event) => {
   formError.textContent = "";
 
   const place = placeInput.value.trim();
-  const date = dateInput.value;
+  const date = normalizeDateValue(dateInput.value);
   const lat = Number(latInput.value);
   const lng = Number(lngInput.value);
-  const photo = photoInput.value.trim();
+  const photoUrl = photoInput.value.trim();
   const note = noteInput.value.trim();
   const tags = parseTags(tagsInput.value);
 
-  if (!place || !date || !photo || !note) {
-    formError.textContent = "Please complete place, date, photo, and note.";
+  const photo = state.pendingUploadedPhoto || photoUrl || "";
+
+  if (!place || !date || !note) {
+    formError.textContent = "Please complete place, date/time, and note.";
+    return;
+  }
+
+  if (!photo) {
+    formError.textContent = "Add a Photo URL or upload a local photo.";
     return;
   }
 
@@ -447,6 +609,8 @@ memoryForm.addEventListener("submit", (event) => {
   });
 
   memoryForm.reset();
+  state.pendingUploadedPhoto = "";
+  setPhotoFileState();
   hidePreviewPin();
   clearSuggestions();
   setSuggestionState("");
@@ -488,6 +652,8 @@ deleteMemoryButton.addEventListener("click", () => {
 
 cancelEditButton.addEventListener("click", () => {
   memoryForm.reset();
+  state.pendingUploadedPhoto = "";
+  setPhotoFileState();
   hidePreviewPin();
   resetFormMode();
   formError.textContent = "";
@@ -504,6 +670,7 @@ tagFilter.addEventListener("change", () => {
 });
 
 placeInput.addEventListener("input", handlePlaceInput);
+photoFileInput.addEventListener("change", handleLocalPhoto);
 
 toggleAdvancedButton.addEventListener("click", () => {
   const isHidden = advancedFields.hidden;
@@ -525,38 +692,6 @@ focusFormButton.addEventListener("click", () => {
   placeInput.focus();
 });
 
-exportMemoriesButton.addEventListener("click", exportJSON);
-
-importMergeButton.addEventListener("click", () => {
-  state.importMode = "merge";
-  importFileInput.click();
-});
-
-importReplaceButton.addEventListener("click", () => {
-  if (!window.confirm("Replace all current memories with imported file?")) {
-    return;
-  }
-  state.importMode = "replace";
-  importFileInput.click();
-});
-
-importFileInput.addEventListener("change", async () => {
-  const [file] = importFileInput.files;
-  if (!file) {
-    return;
-  }
-
-  try {
-    const text = await file.text();
-    importJSON(text, state.importMode);
-    formError.textContent = "Import successful.";
-  } catch {
-    formError.textContent = "Import failed. Use a valid memories JSON file.";
-  }
-
-  importFileInput.value = "";
-});
-
 closeDialogButton.addEventListener("click", () => {
   memoryDialog.close();
 });
@@ -574,4 +709,5 @@ memoryDialog.addEventListener("click", (event) => {
   }
 });
 
+setPhotoFileState();
 renderAll();
