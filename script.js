@@ -68,10 +68,6 @@ const dialogTags = document.getElementById("dialog-tags");
 const editMemoryButton = document.getElementById("edit-memory");
 const deleteMemoryButton = document.getElementById("delete-memory");
 
-const normalizeLongitude = (longitude) => ((longitude + 180) / 360) * 100;
-const normalizeLatitude = (latitude) => ((90 - latitude) / 180) * 100;
-const sortByNewest = (items) => items.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
-
 const safeParse = (value, fallback) => {
   try {
     return JSON.parse(value);
@@ -81,20 +77,14 @@ const safeParse = (value, fallback) => {
 };
 
 const normalizeDateValue = (value) => {
-  if (!value) {
-    return "";
-  }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return `${value}T12:00`;
-  }
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return `${value}T12:00`;
   return value;
 };
 
 const formatDate = (dateValue) => {
   const parsed = new Date(normalizeDateValue(dateValue));
-  if (Number.isNaN(parsed.getTime())) {
-    return "Unknown date";
-  }
+  if (Number.isNaN(parsed.getTime())) return "Unknown date";
   return parsed.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 };
 
@@ -116,6 +106,8 @@ const normalizeMemory = (memory) => ({
   tags: Array.isArray(memory.tags) ? memory.tags.map((tag) => String(tag).toLowerCase().trim()).filter(Boolean) : [],
 });
 
+const sortByNewest = (items) => items.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+
 const loadState = () => {
   const storedMemories = safeParse(localStorage.getItem(STORAGE_KEY), null);
   const memoriesRaw = Array.isArray(storedMemories) ? storedMemories : defaultMemories;
@@ -130,10 +122,7 @@ const loadState = () => {
   return {
     memories,
     geocodeCache: typeof cache === "object" && cache ? cache : {},
-    filters: {
-      search: "",
-      tag: "",
-    },
+    filters: { search: "", tag: "" },
     editingId: null,
     selectedMemoryId: null,
     pendingUploadedPhoto: "",
@@ -142,11 +131,66 @@ const loadState = () => {
 
 let state = loadState();
 let geocodeDebounceId;
-let previewPin;
+let map;
+let memoryMarkersLayer;
+let previewMarker;
+
+const memoryMarkerIcon = L.divIcon({ className: "memory-marker", iconSize: [16, 16], iconAnchor: [8, 8] });
+const previewMarkerIcon = L.divIcon({ className: "memory-marker memory-marker--preview", iconSize: [18, 18], iconAnchor: [9, 9] });
 
 const saveState = () => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.memories));
   localStorage.setItem(GEOCODE_CACHE_KEY, JSON.stringify(state.geocodeCache));
+};
+
+const initMap = () => {
+  map = L.map(mapElement, { worldCopyJump: true, zoomControl: true });
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  }).addTo(map);
+
+  memoryMarkersLayer = L.layerGroup().addTo(map);
+  map.setView([20, 0], 2);
+};
+
+const fitMapToMemories = () => {
+  const valid = state.memories.filter((m) => Number.isFinite(m.lat) && Number.isFinite(m.lng));
+  if (!valid.length) {
+    map.setView([20, 0], 2);
+    return;
+  }
+
+  const bounds = L.latLngBounds(valid.map((m) => [m.lat, m.lng]));
+  map.fitBounds(bounds, { padding: [40, 40], maxZoom: 5 });
+};
+
+const renderMapMarkers = () => {
+  memoryMarkersLayer.clearLayers();
+  state.memories.forEach((memory) => {
+    if (!Number.isFinite(memory.lat) || !Number.isFinite(memory.lng)) return;
+    const marker = L.marker([memory.lat, memory.lng], { icon: memoryMarkerIcon });
+    marker.on("click", () => openModal(memory));
+    marker.addTo(memoryMarkersLayer);
+  });
+};
+
+const showPreviewPin = (lat, lng) => {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+  if (previewMarker) {
+    previewMarker.setLatLng([lat, lng]);
+  } else {
+    previewMarker = L.marker([lat, lng], { icon: previewMarkerIcon, interactive: false }).addTo(map);
+  }
+  map.panTo([lat, lng], { animate: true, duration: 0.5 });
+};
+
+const hidePreviewPin = () => {
+  if (previewMarker) {
+    previewMarker.remove();
+    previewMarker = null;
+  }
 };
 
 const setSuggestionState = (message = "") => {
@@ -167,28 +211,6 @@ const setLatLng = (lat, lng) => {
   lngInput.value = Number(lng).toFixed(4);
 };
 
-const showPreviewPin = (lat, lng) => {
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    return;
-  }
-
-  if (!previewPin) {
-    previewPin = document.createElement("span");
-    previewPin.className = "pin pin--preview";
-    mapElement.append(previewPin);
-  }
-
-  previewPin.style.left = `${normalizeLongitude(lng)}%`;
-  previewPin.style.top = `${normalizeLatitude(lat)}%`;
-};
-
-const hidePreviewPin = () => {
-  if (previewPin) {
-    previewPin.remove();
-    previewPin = null;
-  }
-};
-
 const getSelectedMemory = () => state.memories.find((memory) => memory.id === state.selectedMemoryId) || null;
 
 const renderTagFilter = () => {
@@ -200,9 +222,7 @@ const renderTagFilter = () => {
     const option = document.createElement("option");
     option.value = tag;
     option.textContent = `#${tag}`;
-    if (tag === state.filters.tag) {
-      option.selected = true;
-    }
+    if (tag === state.filters.tag) option.selected = true;
     tagFilter.append(option);
   });
 };
@@ -211,9 +231,7 @@ const applyFilters = () => {
   const query = state.filters.search.toLowerCase();
   return sortByNewest(state.memories).filter((memory) => {
     const haystack = `${memory.place} ${memory.note} ${memory.tags.join(" ")}`.toLowerCase();
-    const matchesSearch = !query || haystack.includes(query);
-    const matchesTag = !state.filters.tag || memory.tags.includes(state.filters.tag);
-    return matchesSearch && matchesTag;
+    return (!query || haystack.includes(query)) && (!state.filters.tag || memory.tags.includes(state.filters.tag));
   });
 };
 
@@ -225,21 +243,6 @@ const openModal = (memory) => {
   dialogNote.textContent = memory.note;
   dialogTags.textContent = memory.tags.length ? `#${memory.tags.join(" #")}` : "No tags";
   memoryDialog.showModal();
-};
-
-const renderMap = () => {
-  mapElement.querySelectorAll(".pin:not(.pin--preview)").forEach((pin) => pin.remove());
-
-  state.memories.forEach((memory) => {
-    const pin = document.createElement("button");
-    pin.className = "pin";
-    pin.type = "button";
-    pin.style.left = `${normalizeLongitude(memory.lng)}%`;
-    pin.style.top = `${normalizeLatitude(memory.lat)}%`;
-    pin.title = memory.place;
-    pin.addEventListener("click", () => openModal(memory));
-    mapElement.append(pin);
-  });
 };
 
 const renderList = () => {
@@ -263,9 +266,7 @@ const renderList = () => {
     image.alt = `Photo from ${memory.place}`;
     fragment.querySelector(".memory-card__meta").textContent = `${formatDate(memory.date)} • ${memory.place}`;
     fragment.querySelector(".memory-card__note").textContent = memory.note;
-    fragment.querySelector(".memory-card__tags").textContent = memory.tags.length
-      ? `#${memory.tags.join(" #")}`
-      : "";
+    fragment.querySelector(".memory-card__tags").textContent = memory.tags.length ? `#${memory.tags.join(" #")}` : "";
 
     card.addEventListener("click", () => openModal(memory));
     card.addEventListener("keydown", (event) => {
@@ -280,7 +281,7 @@ const renderList = () => {
 };
 
 const renderAll = () => {
-  renderMap();
+  renderMapMarkers();
   renderTagFilter();
   renderList();
 };
@@ -307,13 +308,11 @@ const fillForm = (memory) => {
 
 const upsertMemory = (memory) => {
   const normalized = normalizeMemory(memory);
-
   if (state.editingId) {
     state.memories = state.memories.map((item) => (item.id === state.editingId ? { ...normalized, id: state.editingId } : item));
   } else {
     state.memories.push(normalized);
   }
-
   saveState();
   renderAll();
 };
@@ -326,19 +325,10 @@ const deleteMemory = (id) => {
 
 const geocodePlace = async (query) => {
   const key = query.toLowerCase();
-  if (state.geocodeCache[key]) {
-    return state.geocodeCache[key];
-  }
+  if (state.geocodeCache[key]) return state.geocodeCache[key];
 
-  const response = await fetch(`${GEOCODE_URL}${encodeURIComponent(query)}`, {
-    headers: {
-      Accept: "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error("Network error");
-  }
+  const response = await fetch(`${GEOCODE_URL}${encodeURIComponent(query)}`, { headers: { Accept: "application/json" } });
+  if (!response.ok) throw new Error("Network error");
 
   const data = await response.json();
   state.geocodeCache[key] = Array.isArray(data) ? data : [];
@@ -348,7 +338,6 @@ const geocodePlace = async (query) => {
 
 const renderSuggestions = (results) => {
   suggestionsList.innerHTML = "";
-
   if (!results.length) {
     clearSuggestions();
     setSuggestionState("No results.");
@@ -363,15 +352,16 @@ const renderSuggestions = (results) => {
     button.textContent = result.display_name;
     button.addEventListener("click", () => {
       placeInput.value = result.display_name;
-      setLatLng(Number(result.lat), Number(result.lon));
-      showPreviewPin(Number(result.lat), Number(result.lon));
+      const lat = Number(result.lat);
+      const lng = Number(result.lon);
+      setLatLng(lat, lng);
+      showPreviewPin(lat, lng);
       clearSuggestions();
       setSuggestionState("Coordinates auto-filled.");
     });
     item.append(button);
     suggestionsList.append(item);
   });
-
   suggestionsList.hidden = false;
 };
 
@@ -397,42 +387,24 @@ const handlePlaceInput = () => {
   }, 400);
 };
 
-const isValidCoordinate = (lat, lng) =>
-  Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+const isValidCoordinate = (lat, lng) => Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 
 const readExifDateTime = (arrayBuffer) => {
   const view = new DataView(arrayBuffer);
-  if (view.byteLength < 4 || view.getUint16(0) !== 0xffd8) {
-    return null;
-  }
+  if (view.byteLength < 4 || view.getUint16(0) !== 0xffd8) return null;
 
   let offset = 2;
   while (offset + 4 < view.byteLength) {
     const marker = view.getUint16(offset);
     offset += 2;
-
-    if (marker === 0xffda || marker === 0xffd9) {
-      break;
-    }
+    if (marker === 0xffda || marker === 0xffd9) break;
 
     const segmentLength = view.getUint16(offset);
-    if (segmentLength < 2 || offset + segmentLength > view.byteLength) {
-      break;
-    }
+    if (segmentLength < 2 || offset + segmentLength > view.byteLength) break;
 
     if (marker === 0xffe1) {
       const start = offset + 2;
-      if (start + 6 > view.byteLength) {
-        break;
-      }
-
-      const exifHeader = String.fromCharCode(
-        view.getUint8(start),
-        view.getUint8(start + 1),
-        view.getUint8(start + 2),
-        view.getUint8(start + 3),
-      );
-
+      const exifHeader = String.fromCharCode(view.getUint8(start), view.getUint8(start + 1), view.getUint8(start + 2), view.getUint8(start + 3));
       if (exifHeader !== "Exif") {
         offset += segmentLength;
         continue;
@@ -442,9 +414,7 @@ const readExifDateTime = (arrayBuffer) => {
       const littleEndian = view.getUint16(tiffStart) === 0x4949;
       const getUint16 = (pos) => view.getUint16(pos, littleEndian);
       const getUint32 = (pos) => view.getUint32(pos, littleEndian);
-
-      const ifd0Offset = getUint32(tiffStart + 4);
-      const ifd0Start = tiffStart + ifd0Offset;
+      const ifd0Start = tiffStart + getUint32(tiffStart + 4);
       const ifd0Entries = getUint16(ifd0Start);
 
       let exifIfdOffset = null;
@@ -455,31 +425,22 @@ const readExifDateTime = (arrayBuffer) => {
           break;
         }
       }
-
-      if (!exifIfdOffset) {
-        return null;
-      }
+      if (!exifIfdOffset) return null;
 
       const exifIfdStart = tiffStart + exifIfdOffset;
       const exifEntries = getUint16(exifIfdStart);
-
       for (let i = 0; i < exifEntries; i += 1) {
         const entry = exifIfdStart + 2 + i * 12;
         const tag = getUint16(entry);
-        if (tag !== 0x9003 && tag !== 0x0132) {
-          continue;
-        }
+        if (tag !== 0x9003 && tag !== 0x0132) continue;
 
         const count = getUint32(entry + 4);
-        const valueOffset = getUint32(entry + 8);
-        const stringStart = tiffStart + valueOffset;
+        const stringStart = tiffStart + getUint32(entry + 8);
         const end = Math.min(stringStart + count, view.byteLength);
         let result = "";
         for (let p = stringStart; p < end; p += 1) {
           const byte = view.getUint8(p);
-          if (byte === 0) {
-            break;
-          }
+          if (byte === 0) break;
           result += String.fromCharCode(byte);
         }
         return result || null;
@@ -493,15 +454,9 @@ const readExifDateTime = (arrayBuffer) => {
 };
 
 const exifToDatetimeLocal = (exifValue) => {
-  if (!exifValue) {
-    return null;
-  }
-
+  if (!exifValue) return null;
   const match = exifValue.match(/^(\d{4}):(\d{2}):(\d{2})\s(\d{2}):(\d{2})(?::\d{2})?/);
-  if (!match) {
-    return null;
-  }
-
+  if (!match) return null;
   const [, year, month, day, hour, minute] = match;
   return `${year}-${month}-${day}T${hour}:${minute}`;
 };
@@ -509,32 +464,22 @@ const exifToDatetimeLocal = (exifValue) => {
 const compressImageFile = (file, maxDimension = 1800, quality = 0.82) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
-
     reader.onerror = () => reject(new Error("Could not read image file"));
     reader.onload = () => {
       const image = new Image();
       image.onerror = () => reject(new Error("Could not load image"));
       image.onload = () => {
         const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
-        const targetWidth = Math.max(1, Math.round(image.width * scale));
-        const targetHeight = Math.max(1, Math.round(image.height * scale));
-
         const canvas = document.createElement("canvas");
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
         const context = canvas.getContext("2d");
-        if (!context) {
-          reject(new Error("Could not create image context"));
-          return;
-        }
-
-        context.drawImage(image, 0, 0, targetWidth, targetHeight);
+        if (!context) return reject(new Error("Could not create image context"));
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
         resolve(canvas.toDataURL("image/jpeg", quality));
       };
       image.src = reader.result;
     };
-
     reader.readAsDataURL(file);
   });
 
@@ -548,12 +493,7 @@ const handleLocalPhoto = async () => {
 
   try {
     setPhotoFileState("Compressing image and reading EXIF…");
-
-    const [compressedDataUrl, exifBuffer] = await Promise.all([
-      compressImageFile(file),
-      file.arrayBuffer(),
-    ]);
-
+    const [compressedDataUrl, exifBuffer] = await Promise.all([compressImageFile(file), file.arrayBuffer()]);
     state.pendingUploadedPhoto = compressedDataUrl;
     setPhotoFileState(`Using uploaded photo: ${file.name}`);
 
@@ -576,37 +516,24 @@ memoryForm.addEventListener("submit", (event) => {
   const date = normalizeDateValue(dateInput.value);
   const lat = Number(latInput.value);
   const lng = Number(lngInput.value);
-  const photoUrl = photoInput.value.trim();
+  const photo = state.pendingUploadedPhoto || photoInput.value.trim();
   const note = noteInput.value.trim();
   const tags = parseTags(tagsInput.value);
-
-  const photo = state.pendingUploadedPhoto || photoUrl || "";
 
   if (!place || !date || !note) {
     formError.textContent = "Please complete place, date/time, and note.";
     return;
   }
-
   if (!photo) {
     formError.textContent = "Add a Photo URL or upload a local photo.";
     return;
   }
-
   if (!isValidCoordinate(lat, lng)) {
     formError.textContent = "Use a suggestion or enter valid latitude/longitude.";
     return;
   }
 
-  upsertMemory({
-    id: state.editingId || crypto.randomUUID(),
-    place,
-    date,
-    lat,
-    lng,
-    photo,
-    note,
-    tags,
-  });
+  upsertMemory({ id: state.editingId || crypto.randomUUID(), place, date, lat, lng, photo, note, tags });
 
   memoryForm.reset();
   state.pendingUploadedPhoto = "";
@@ -615,13 +542,13 @@ memoryForm.addEventListener("submit", (event) => {
   clearSuggestions();
   setSuggestionState("");
   resetFormMode();
+
+  fitMapToMemories();
 });
 
 editMemoryButton.addEventListener("click", () => {
   const memory = getSelectedMemory();
-  if (!memory) {
-    return;
-  }
+  if (!memory) return;
 
   state.editingId = memory.id;
   formTitle.textContent = "Edit memory";
@@ -638,16 +565,12 @@ editMemoryButton.addEventListener("click", () => {
 
 deleteMemoryButton.addEventListener("click", () => {
   const memory = getSelectedMemory();
-  if (!memory) {
-    return;
-  }
-
-  if (!window.confirm(`Delete memory from ${memory.place}?`)) {
-    return;
-  }
+  if (!memory) return;
+  if (!window.confirm(`Delete memory from ${memory.place}?`)) return;
 
   deleteMemory(memory.id);
   memoryDialog.close();
+  fitMapToMemories();
 });
 
 cancelEditButton.addEventListener("click", () => {
@@ -698,16 +621,11 @@ closeDialogButton.addEventListener("click", () => {
 
 memoryDialog.addEventListener("click", (event) => {
   const rect = memoryDialog.getBoundingClientRect();
-  const insideBounds =
-    event.clientX >= rect.left &&
-    event.clientX <= rect.right &&
-    event.clientY >= rect.top &&
-    event.clientY <= rect.bottom;
-
-  if (!insideBounds) {
-    memoryDialog.close();
-  }
+  const insideBounds = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+  if (!insideBounds) memoryDialog.close();
 });
 
+initMap();
 setPhotoFileState();
 renderAll();
+fitMapToMemories();

@@ -110,33 +110,31 @@ h1 {
 }
 
 .map {
-  position: relative;
   margin: 0.9rem;
   min-height: 540px;
   border: 1px solid #d7cebf;
   border-radius: var(--radius);
-  background-image:
-    linear-gradient(rgba(28, 34, 42, 0.2), rgba(28, 34, 42, 0.38)),
-    url("https://images.unsplash.com/photo-1521292270410-a8c4d716d518?auto=format&fit=crop&w=1800&q=80");
-  background-size: cover;
-  background-position: center;
+  overflow: hidden;
 }
 
-.pin {
-  position: absolute;
-  width: 13px;
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-  border: 1px solid #fefefe;
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  font: inherit;
+  background: #dce5ec;
+}
+
+.memory-marker {
   border-radius: 50%;
   background: var(--pin);
-  box-shadow: 0 3px 10px rgba(27, 20, 15, 0.3);
-  cursor: pointer;
+  border: 2px solid #fffaf2;
+  box-shadow: 0 2px 8px rgba(20, 24, 33, 0.28);
 }
 
-.pin--preview {
-  width: 16px;
+.memory-marker--preview {
   background: var(--accent);
+  border-color: #e8f2fa;
 }
 
 .panel--form {
