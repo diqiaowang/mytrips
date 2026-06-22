@@ -28,6 +28,11 @@ const defaultMemories = [
   },
 ];
 
+const coverPage = document.getElementById("cover-page");
+const archivePage = document.getElementById("archive-page");
+const enterArchiveButton = document.getElementById("enter-archive");
+const enterArchiveTextButton = document.getElementById("enter-archive-text");
+const backToCoverButton = document.getElementById("back-to-cover");
 const mapElement = document.getElementById("map");
 const memoryListElement = document.getElementById("memory-list");
 const memoryForm = document.getElementById("memory-form");
@@ -132,6 +137,7 @@ let geocodeDebounceId;
 let map;
 let memoryMarkersLayer;
 let previewMarker;
+let showArchive = false;
 
 const memoryMarkerIcon = L.divIcon({ className: "memory-marker", iconSize: [16, 16], iconAnchor: [8, 8] });
 const previewMarkerIcon = L.divIcon({ className: "memory-marker memory-marker--preview", iconSize: [18, 18], iconAnchor: [9, 9] });
@@ -282,7 +288,7 @@ const renderList = () => {
 };
 
 const renderAll = () => {
-  renderMapMarkers();
+  if (map) renderMapMarkers();
   renderTagFilter();
   renderList();
 };
@@ -621,7 +627,32 @@ memoryDialog.addEventListener("click", (event) => {
   if (!insideBounds) memoryDialog.close();
 });
 
-initMap();
+const openArchivePage = () => {
+  showArchive = true;
+  coverPage.hidden = true;
+  archivePage.hidden = false;
+
+  if (!map) {
+    initMap();
+  }
+
+  renderAll();
+  setTimeout(() => {
+    map.invalidateSize();
+    fitMapToMemories();
+  }, 0);
+};
+
+const openCoverPage = () => {
+  showArchive = false;
+  archivePage.hidden = true;
+  coverPage.hidden = false;
+};
+
+enterArchiveButton.addEventListener("click", openArchivePage);
+enterArchiveTextButton.addEventListener("click", openArchivePage);
+backToCoverButton.addEventListener("click", openCoverPage);
+
 setPhotoFileState();
-renderAll();
-fitMapToMemories();
+renderTagFilter();
+renderList();

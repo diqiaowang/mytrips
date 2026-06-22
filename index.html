@@ -14,15 +14,32 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="paper" aria-hidden="true"></div>
+    <section id="cover-page" class="cover-page" aria-label="Travel journal cover">
+      <div class="cover-art" aria-hidden="true"></div>
+      <div class="cover-copy">
+        <p class="cover-label">TRAVEL JOURNAL</p>
+        <h1>THE MEMORY ATLAS</h1>
+        <p class="cover-subtitle">A collection of places, people, and moments worth remembering.</p>
+        <button id="enter-archive" class="enter-button" type="button" aria-label="Enter memory archive">
+          <span aria-hidden="true">→</span>
+        </button>
+        <button id="enter-archive-text" class="enter-text" type="button">ENTER</button>
+      </div>
+    </section>
 
-    <header class="hero">
+    <div id="archive-page" class="archive-page" hidden>
+      <div class="paper" aria-hidden="true"></div>
+
+      <header class="hero">
       <p class="eyebrow">MyTrips · Editorial archive</p>
       <h1>Map your journeys like a curated photo diary.</h1>
       <p class="hero__subtitle">
         Keep each place as a pin, a photo, and a small memory note — all client-side in your browser.
       </p>
-      <button id="focus-form" class="button button--ghost" type="button">Add new memory</button>
+      <div class="hero__actions">
+        <button id="focus-form" class="button button--ghost" type="button">Add new memory</button>
+        <button id="back-to-cover" class="link-button back-link" type="button">Back to cover</button>
+      </div>
     </header>
 
     <main class="layout">
@@ -135,6 +152,8 @@
         <button id="delete-memory" class="button button--small button--danger" type="button">Delete</button>
       </div>
     </dialog>
+
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="script.js"></script>
