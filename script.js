@@ -31,7 +31,7 @@ const defaultMemories = [
 const coverPage = document.getElementById("cover-page");
 const archivePage = document.getElementById("archive-page");
 const enterArchiveButton = document.getElementById("enter-archive");
-const enterArchiveTextButton = document.getElementById("enter-archive-text");
+const enterMemoryAtlasButton = document.getElementById("enter-memory-atlas");
 const backToCoverButton = document.getElementById("back-to-cover");
 const mapElement = document.getElementById("map");
 const memoryListElement = document.getElementById("memory-list");
@@ -650,7 +650,7 @@ const openCoverPage = () => {
 };
 
 enterArchiveButton.addEventListener("click", openArchivePage);
-enterArchiveTextButton.addEventListener("click", openArchivePage);
+enterMemoryAtlasButton.addEventListener("click", openArchivePage);
 backToCoverButton.addEventListener("click", openCoverPage);
 
 setPhotoFileState();

@@ -33,18 +33,29 @@
       </div>
 
       <div class="cover-copy">
-        <p class="cover-kicker">THE</p>
-        <h1>MEMORY<br />ATLAS</h1>
+        <p class="cover-kicker">TRAVEL JOURNAL</p>
+        <div class="cover-shell" aria-hidden="true">✦</div>
+        <h1>a traveler’s<br />workstation</h1>
         <div class="cover-divider" aria-hidden="true"></div>
         <p class="cover-subtitle">
           A collection of places,<br />
           people, and moments<br />
           <span>worth remembering.</span>
         </p>
-        <button id="enter-archive" class="enter-button" type="button" aria-label="Enter memory archive">
-          <span aria-hidden="true">→</span>
-        </button>
-        <button id="enter-archive-text" class="enter-text" type="button">ENTER</button>
+
+        <div class="entry-picker" aria-label="Choose where to enter">
+          <button id="enter-archive" class="enter-button" type="button" aria-label="Enter The Memory Atlas">
+            <span aria-hidden="true">→</span>
+          </button>
+          <button id="enter-memory-atlas" class="entry-option entry-option--active" type="button">
+            <span>ENTER</span>
+            <strong>The Memory Atlas</strong>
+          </button>
+          <button class="entry-option" type="button" disabled aria-disabled="true">
+            <span>SOON</span>
+            <strong>Next Journal</strong>
+          </button>
+        </div>
       </div>
     </section>
 
