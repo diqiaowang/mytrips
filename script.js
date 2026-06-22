@@ -54,8 +54,6 @@ const cancelEditButton = document.getElementById("cancel-edit");
 
 const suggestionsList = document.getElementById("suggestions");
 const suggestionState = document.getElementById("suggestion-state");
-const toggleAdvancedButton = document.getElementById("toggle-advanced");
-const advancedFields = document.getElementById("advanced-fields");
 
 const searchInput = document.getElementById("search-input");
 const tagFilter = document.getElementById("tag-filter");
@@ -241,6 +239,7 @@ const openModal = (memory) => {
   dialogPlace.textContent = memory.place;
   dialogMeta.textContent = `${formatDate(memory.date)} • ${memory.place}`;
   dialogNote.textContent = memory.note;
+  dialogNote.hidden = !memory.note;
   dialogTags.textContent = memory.tags.length ? `#${memory.tags.join(" #")}` : "No tags";
   memoryDialog.showModal();
 };
@@ -265,7 +264,9 @@ const renderList = () => {
     image.src = memory.photo || FALLBACK_IMAGE;
     image.alt = `Photo from ${memory.place}`;
     fragment.querySelector(".memory-card__meta").textContent = `${formatDate(memory.date)} • ${memory.place}`;
-    fragment.querySelector(".memory-card__note").textContent = memory.note;
+    const noteElement = fragment.querySelector(".memory-card__note");
+    noteElement.textContent = memory.note;
+    noteElement.hidden = !memory.note;
     fragment.querySelector(".memory-card__tags").textContent = memory.tags.length ? `#${memory.tags.join(" #")}` : "";
 
     card.addEventListener("click", () => openModal(memory));
@@ -520,8 +521,8 @@ memoryForm.addEventListener("submit", (event) => {
   const note = noteInput.value.trim();
   const tags = parseTags(tagsInput.value);
 
-  if (!place || !date || !note) {
-    formError.textContent = "Please complete place, date/time, and note.";
+  if (!place || !date) {
+    formError.textContent = "Please complete place and date/time.";
     return;
   }
   if (!photo) {
@@ -595,11 +596,6 @@ tagFilter.addEventListener("change", () => {
 placeInput.addEventListener("input", handlePlaceInput);
 photoFileInput.addEventListener("change", handleLocalPhoto);
 
-toggleAdvancedButton.addEventListener("click", () => {
-  const isHidden = advancedFields.hidden;
-  advancedFields.hidden = !isHidden;
-  toggleAdvancedButton.setAttribute("aria-expanded", String(isHidden));
-});
 
 collapseFormButton.addEventListener("click", () => {
   const nextHidden = !formContent.hidden;
