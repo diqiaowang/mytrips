@@ -51,6 +51,10 @@
             <span>ENTER</span>
             <strong>The Memory Atlas</strong>
           </button>
+          <button id="enter-studio" class="entry-option" type="button">
+            <span>OPEN</span>
+            <strong>Editorial Studio</strong>
+          </button>
           <button class="entry-option" type="button" disabled aria-disabled="true">
             <span>SOON</span>
             <strong>Next Journal</strong>
@@ -187,7 +191,164 @@
 
     </div>
 
+      <section id="studio-page" class="studio-page" hidden aria-label="Editorial Studio">
+        <header class="studio-topbar">
+          <button id="studio-back-cover" class="link-button" type="button">← Workstation cover</button>
+          <div>
+            <p class="studio-eyebrow">A Traveler’s Workstation</p>
+            <h1>Editorial Studio</h1>
+          </div>
+          <nav class="studio-actions" aria-label="Studio actions">
+            <button id="studio-undo" class="button button--secondary" type="button">Undo</button>
+            <button id="studio-redo" class="button button--secondary" type="button">Redo</button>
+            <button id="studio-save" class="button" type="button">Save</button>
+            <button id="studio-export-page" class="button button--secondary" type="button">Export page</button>
+            <button id="studio-export-all" class="button button--secondary" type="button">Export ZIP</button>
+            <button id="studio-export-long" class="button button--secondary" type="button">Long image</button>
+          </nav>
+        </header>
+
+        <p class="studio-mobile-note">Editorial Studio is desktop-first. On smaller screens you can review, edit text, replace photos, and save; detailed layout work is best on desktop.</p>
+
+        <div class="studio-shell">
+          <aside class="studio-panel studio-panel--left">
+            <label for="studio-project-title">Project title</label>
+            <input id="studio-project-title" type="text" />
+
+            <div class="studio-field-grid">
+              <div>
+                <label for="studio-city">City</label>
+                <input id="studio-city" type="text" />
+              </div>
+              <div>
+                <label for="studio-country">Country</label>
+                <input id="studio-country" type="text" />
+              </div>
+            </div>
+
+            <label for="studio-ratio">Output ratio</label>
+            <select id="studio-ratio">
+              <option value="3:4">Instagram 3:4 · 1080 × 1440</option>
+              <option value="2:3">2:3 · 1080 × 1620</option>
+            </select>
+
+            <div class="studio-panel-heading">
+              <h2>Pages</h2>
+              <button id="studio-add-page" class="link-button" type="button">+ Add page</button>
+            </div>
+            <div id="studio-page-list" class="studio-page-list"></div>
+            <div class="studio-page-tools">
+              <button id="studio-move-up" class="button button--secondary" type="button">Move up</button>
+              <button id="studio-move-down" class="button button--secondary" type="button">Move down</button>
+              <button id="studio-duplicate-page" class="button button--secondary" type="button">Duplicate</button>
+              <button id="studio-delete-page" class="button button--danger" type="button">Delete</button>
+            </div>
+          </aside>
+
+          <main class="studio-stage" aria-live="polite">
+            <div class="studio-canvas-toolbar">
+              <span id="studio-selected-state">01 · Cover</span>
+              <label><input id="studio-guides" type="checkbox" checked /> Safe guides</label>
+              <button id="studio-preview" class="link-button" type="button">Preview carousel</button>
+              <button class="link-button" type="button" disabled>Publish to Journey · later</button>
+            </div>
+            <div id="studio-canvas-wrap" class="studio-canvas-wrap">
+              <article id="studio-canvas" class="studio-canvas" aria-label="Selected editorial page preview"></article>
+            </div>
+          </main>
+
+          <aside class="studio-panel studio-panel--right">
+            <div class="studio-tabs" role="tablist" aria-label="Studio inspector">
+              <button class="studio-tab is-active" type="button" data-tab="content">Content</button>
+              <button class="studio-tab" type="button" data-tab="photo">Photo</button>
+              <button class="studio-tab" type="button" data-tab="theme">Theme</button>
+            </div>
+
+            <section class="studio-tab-panel" data-panel="content">
+              <label for="studio-layout">Layout</label>
+              <select id="studio-layout">
+                <option value="split-cover">Split Cover</option>
+                <option value="standard">Standard Page</option>
+                <option value="image-first">Image First</option>
+                <option value="full-image">Full Image</option>
+                <option value="places">Places Page</option>
+              </select>
+
+              <label for="studio-number">Number</label>
+              <input id="studio-number" type="text" />
+              <label for="studio-title">Title</label>
+              <input id="studio-title" type="text" />
+              <p id="studio-title-warning" class="studio-warning"></p>
+              <label for="studio-subtitle">Subtitle / place</label>
+              <input id="studio-subtitle" type="text" />
+              <p id="studio-subtitle-warning" class="studio-warning"></p>
+              <label for="studio-kicker">Kicker / date</label>
+              <input id="studio-kicker" type="text" />
+              <label for="studio-notes">Supporting copy / places list</label>
+              <textarea id="studio-notes" rows="6"></textarea>
+              <p id="studio-notes-warning" class="studio-warning"></p>
+              <label for="studio-alt">Alt text</label>
+              <input id="studio-alt" type="text" />
+            </section>
+
+            <section class="studio-tab-panel" data-panel="photo" hidden>
+              <label for="studio-media-upload">Upload photographs</label>
+              <input id="studio-media-upload" type="file" accept="image/jpeg,image/png,image/webp,image/heic" multiple />
+              <p id="studio-media-state" class="input-helper">Photos stay in this browser. JPG, PNG, and WebP are previewed directly.</p>
+              <div id="studio-media-drop" class="studio-dropzone">Drop photos here</div>
+              <div id="studio-media-list" class="studio-media-list"></div>
+
+              <h3>Crop</h3>
+              <label for="studio-zoom">Zoom</label>
+              <input id="studio-zoom" type="range" min="0.5" max="3" step="0.01" />
+              <label for="studio-x">Horizontal position</label>
+              <input id="studio-x" type="range" min="-50" max="50" step="1" />
+              <label for="studio-y">Vertical position</label>
+              <input id="studio-y" type="range" min="-50" max="50" step="1" />
+              <div class="studio-page-tools">
+                <button id="studio-fit" class="button button--secondary" type="button">Fit</button>
+                <button id="studio-fill" class="button button--secondary" type="button">Fill</button>
+                <button id="studio-rotate" class="button button--secondary" type="button">Rotate 90°</button>
+                <button id="studio-reset-crop" class="button button--secondary" type="button">Reset</button>
+              </div>
+
+              <h3>Natural Match</h3>
+              <p class="input-helper">Manual neutral adjustments only. Suggestions are local and never auto-applied.</p>
+              <label for="studio-exposure">Exposure</label>
+              <input id="studio-exposure" type="range" min="-0.5" max="0.5" step="0.01" />
+              <label for="studio-temperature">Temperature</label>
+              <input id="studio-temperature" type="range" min="-8" max="8" step="1" />
+              <label for="studio-contrast">Contrast</label>
+              <input id="studio-contrast" type="range" min="-8" max="8" step="1" />
+              <label for="studio-saturation">Saturation</label>
+              <input id="studio-saturation" type="range" min="-8" max="8" step="1" />
+              <label for="studio-grain">Grain</label>
+              <input id="studio-grain" type="range" min="0" max="10" step="1" />
+              <button id="studio-reset-adjustments" class="button button--secondary" type="button">Reset adjustments</button>
+            </section>
+
+            <section class="studio-tab-panel" data-panel="theme" hidden>
+              <label for="studio-theme">Theme</label>
+              <select id="studio-theme">
+                <option value="atelier">Atelier cream</option>
+                <option value="powder">Powder blue</option>
+                <option value="sage">Sage</option>
+              </select>
+              <label for="studio-import">Import project JSON</label>
+              <input id="studio-import" type="file" accept="application/json" />
+              <button id="studio-export-project" class="button button--secondary" type="button">Export project JSON</button>
+              <button id="studio-duplicate-project" class="button button--secondary" type="button">Duplicate project</button>
+              <button id="studio-delete-project" class="button button--danger" type="button">Delete local project</button>
+            </section>
+          </aside>
+        </div>
+
+        <footer id="studio-filmstrip" class="studio-filmstrip" aria-label="Carousel pages"></footer>
+      </section>
+
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="script.js"></script>
+    <script src="studio.js"></script>
   </body>
 </html>

@@ -30,6 +30,8 @@ const defaultMemories = [
 
 const coverPage = document.getElementById("cover-page");
 const archivePage = document.getElementById("archive-page");
+const studioPage = document.getElementById("studio-page");
+const enterStudioButton = document.getElementById("enter-studio");
 const enterArchiveButton = document.getElementById("enter-archive");
 const enterMemoryAtlasButton = document.getElementById("enter-memory-atlas");
 const backToCoverButton = document.getElementById("back-to-cover");
@@ -630,12 +632,14 @@ memoryDialog.addEventListener("click", (event) => {
 const openArchivePage = () => {
   showArchive = true;
   coverPage.hidden = true;
+  studioPage.hidden = true;
   archivePage.hidden = false;
 
   if (!map) {
     initMap();
   }
 
+  history.pushState({ page: "atlas" }, "", "#atlas");
   renderAll();
   setTimeout(() => {
     map.invalidateSize();
@@ -646,12 +650,29 @@ const openArchivePage = () => {
 const openCoverPage = () => {
   showArchive = false;
   archivePage.hidden = true;
+  studioPage.hidden = true;
   coverPage.hidden = false;
+  history.pushState({ page: "cover" }, "", window.location.pathname);
+};
+
+const openStudioPage = () => {
+  showArchive = false;
+  coverPage.hidden = true;
+  archivePage.hidden = true;
+  studioPage.hidden = false;
+  history.pushState({ page: "studio" }, "", "#studio");
+  window.EditorialStudio?.init?.();
 };
 
 enterArchiveButton.addEventListener("click", openArchivePage);
 enterMemoryAtlasButton.addEventListener("click", openArchivePage);
+enterStudioButton.addEventListener("click", openStudioPage);
 backToCoverButton.addEventListener("click", openCoverPage);
+window.WorkstationNavigation = { openCoverPage, openArchivePage, openStudioPage };
+
+if (window.location.hash === "#studio") {
+  openStudioPage();
+}
 
 setPhotoFileState();
 renderTagFilter();

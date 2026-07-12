@@ -1,5 +1,6 @@
 {
   "scripts": {
-    "build": "node --check script.js"
+    "build": "node --check script.js && node --check studio.js",
+    "test": "node tests/studio-smoke.test.mjs"
   }
 }
